@@ -1,28 +1,19 @@
-from typing import List, Dict, Any
-import urllib
+from typing import List, Dict, Any, Optional
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
     CrawlerRunConfig,
-    CacheMode,
 )
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.content_filter_strategy import PruningContentFilter
 import markdown
 from bs4 import BeautifulSoup
 import re
-import json
 from fastapi import HTTPException
 import aiohttp
 
 # 导入配置和日志模块
-from config import (
-    SEARXNG_API_BASE,
-    DISABLED_ENGINES,
-    ENABLED_ENGINES,
-    CONTENT_FILTER_THRESHOLD,
-    WORD_COUNT_THRESHOLD,
-)
+import config
 import logger
 
 
@@ -76,9 +67,14 @@ class WebCrawler:
     @staticmethod
     async def make_searxng_request(
         query: str,
-        limit: int = 10,
-        disabled_engines: str = DISABLED_ENGINES,
-        enabled_engines: str = ENABLED_ENGINES,
+        limit: int = config.SEARCH_RESULT_LIMIT,
+        topic: str = "general",
+        time_range: Optional[str] = None,
+        days: int = 7,
+        include_domains: List[str] = None,
+        exclude_domains: List[str] = None,
+        disabled_engines: str = config.DISABLED_ENGINES,
+        enabled_engines: str = config.ENABLED_ENGINES,
     ) -> dict:
         """向SearXNG发送搜索请求"""
         try:
@@ -87,11 +83,31 @@ class WebCrawler:
                 "q": query,
                 "format": "json",
                 "language": "zh",
-                "time_range": "week",
-                "safesearch": "2", 
+                "safesearch": "2",
                 "pageno": "1",
-                "category_general": "1"
             }
+
+            # 根据topic设置搜索类别
+            if topic == "news":
+                params["category_news"] = "1"
+                # 设置新闻时间范围
+                if days > 0:
+                    params["time_range"] = f"{days}d"
+            else:
+                params["category_general"] = "1"
+                # 设置一般搜索时间范围
+                if time_range:
+                    params["time_range"] = time_range
+
+            # 处理域名过滤
+            domain_filters = []
+            if include_domains:
+                domain_filters.extend([f"site:{domain}" for domain in include_domains])
+            if exclude_domains:
+                domain_filters.extend([f"-site:{domain}" for domain in exclude_domains])
+
+            if domain_filters:
+                params["q"] = f"{params['q']} {' '.join(domain_filters)}"
 
             headers = {
                 "Cookie": f"disabled_engines={disabled_engines};enabled_engines={enabled_engines};method=POST",
@@ -99,9 +115,9 @@ class WebCrawler:
             }
 
             logger.info(f"向SearXNG发送搜索请求: {query}")
-            
+
             async with aiohttp.ClientSession() as session:
-                url = f"{SEARXNG_API_BASE}"
+                url = f"{config.SEARXNG_API_BASE}"
                 async with session.post(url, data=params, headers=headers) as response:
                     if response.status != 200:
                         raise Exception(f"HTTP请求失败: {response.status}")
@@ -111,15 +127,17 @@ class WebCrawler:
             logger.error(f"SearXNG请求失败: {str(e)}")
             raise Exception(f"搜索请求失败: {str(e)}")
 
-    async def crawl_urls(self, urls: List[str], instruction: str) -> Dict[str, Any]:
+    async def crawl_urls(
+        self,
+        urls: List[str],
+    ) -> Dict[str, Any]:
         """爬取多个URL并处理内容"""
         try:
             if not self.crawler:
                 logger.warning("爬虫未初始化,正在自动初始化")
                 await self.initialize()
-
             md_generator = DefaultMarkdownGenerator(
-                content_filter=PruningContentFilter(threshold=CONTENT_FILTER_THRESHOLD),
+                content_filter=PruningContentFilter(threshold=config.CONTENT_FILTER_THRESHOLD),
                 options={
                     "ignore_links": True,
                     "ignore_images": True,
@@ -128,13 +146,13 @@ class WebCrawler:
             )
 
             run_config = CrawlerRunConfig(
-                word_count_threshold=WORD_COUNT_THRESHOLD,
+                word_count_threshold=config.WORD_COUNT_THRESHOLD,
                 exclude_external_links=True,
                 remove_overlay_elements=True,
                 excluded_tags=["img", "header", "footer", "iframe", "nav"],
                 process_iframes=True,
                 markdown_generator=md_generator,
-                cache_mode=CacheMode.BYPASS,  # 不使用缓存
+                # cache_mode=CacheMode.BYPASS,  # 不使用缓存
             )
 
             logger.info(f"开始爬取URLs: {', '.join(urls)}")
