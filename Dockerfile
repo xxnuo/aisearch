@@ -34,5 +34,7 @@ COPY --from=builder --chown=app:app /app /app
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
+RUN crawl4ai-setup
+
 # Run the FastAPI application by default
 CMD ["python3", "main.py"]
