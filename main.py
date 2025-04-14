@@ -250,7 +250,3 @@ async def search(request: SearchRequest):
         if current_task and current_task in active_connections:
             active_connections.remove(current_task)
             logger.debug("已清理完成的搜索请求")
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host=config.API_HOST, port=config.API_PORT)

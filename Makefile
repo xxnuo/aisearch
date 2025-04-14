@@ -1,7 +1,7 @@
 VERSION := $(shell grep -o '".*"' const.py | tr -d '"')
 
 dev:
-	uv run main.py
+	uv run uvicorn main:app --reload
 
 setup:
 	uv sync --frozen
