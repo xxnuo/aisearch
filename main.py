@@ -119,7 +119,7 @@ class ExtractRequest(BaseModel):
     extract_depth: str = Field(
         default="basic",
         description="提取深度: basic或advanced",
-        regex="^(basic|advanced)$"
+        pattern="^(basic|advanced)$"
     )
 
     class Config:
