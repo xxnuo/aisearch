@@ -37,4 +37,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 RUN crawl4ai-setup
 
 # Run the FastAPI application by default
-CMD ["python3", "main.py"]
+CMD ["python3", "/app/main.py"]
