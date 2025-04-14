@@ -42,6 +42,7 @@ class SearchRequest(BaseModel):
     """搜索请求模型 - 遵循Tavily API规范"""
 
     query: str = Field(..., description="搜索查询字符串")
+    include_raw_content: bool = Field(default=False, description="是否包含原始HTML内容")
     topic: str = Field(default="general", description="搜索类别: general或news")
     search_depth: str = Field(default="basic", description="搜索深度: basic或advanced")
     chunks_per_source: int = Field(
@@ -55,7 +56,6 @@ class SearchRequest(BaseModel):
     )
     days: int = Field(default=7, ge=1, description="新闻搜索时的天数限制")
     include_answer: bool = Field(default=False, description="是否包含AI生成的答案")
-    include_raw_content: bool = Field(default=False, description="是否包含原始HTML内容")
     include_images: bool = Field(default=False, description="是否包含图片搜索结果")
     include_image_descriptions: bool = Field(
         default=False, description="是否包含图片描述"
