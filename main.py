@@ -1,9 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-import uvicorn
 import sys
 import subprocess
-from typing import List, Optional
+from typing import List, Optional, Union, Dict
 from contextlib import asynccontextmanager
 import time
 import asyncio
@@ -110,6 +109,43 @@ class TavilySearchResponse(BaseModel):
     images: List[ImageResult] = []
     results: List[SearchResult] = []
     response_time: str
+
+
+class ExtractRequest(BaseModel):
+    """Tavily Extract API请求模型"""
+    
+    urls: Union[str, List[str]] = Field(..., description="要提取内容的URL或URL列表")
+    include_images: bool = Field(default=False, description="是否包含图片")
+    extract_depth: str = Field(
+        default="basic",
+        description="提取深度: basic或advanced",
+        regex="^(basic|advanced)$"
+    )
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "urls": "https://example.com",
+                "include_images": False,
+                "extract_depth": "basic"
+            }
+        }
+
+
+class ExtractResult(BaseModel):
+    """提取结果模型"""
+    
+    url: str
+    raw_content: str
+    images: List[str] = []
+
+
+class ExtractResponse(BaseModel):
+    """Tavily Extract API响应模型"""
+    
+    results: List[ExtractResult]
+    failed_results: List[Dict[str, str]] = []
+    response_time: float
 
 
 @asynccontextmanager
@@ -253,3 +289,61 @@ async def search(request: SearchRequest):
         if current_task and current_task in active_connections:
             active_connections.remove(current_task)
             logger.debug("已清理完成的搜索请求")
+
+
+@app.post("/extract", response_model=ExtractResponse)
+async def extract(request: ExtractRequest):
+    """提取URL内容的API端点"""
+    if is_shutting_down:
+        raise HTTPException(status_code=503, detail="服务正在关闭")
+
+    # 创建并跟踪当前任务
+    current_task = asyncio.current_task()
+    if current_task:
+        active_connections.append(current_task)
+
+    try:
+        start_time = time.time()
+        
+        # 处理单个URL的情况
+        urls = [request.urls] if isinstance(request.urls, str) else request.urls
+        logger.info(f"开始提取内容: {', '.join(urls)}")
+
+        # 执行内容提取
+        crawl_result = await crawl(CrawlRequest(urls=urls))
+
+        # 构建响应
+        results = []
+        for url in urls:
+            if url not in crawl_result.get("failed_urls", []):
+                result = ExtractResult(
+                    url=url,
+                    raw_content=crawl_result.get("content", ""),
+                    images=[] if not request.include_images else []  # 暂不支持图片提取
+                )
+                results.append(result)
+
+        # 处理失败的URL
+        failed_results = [
+            {"url": url, "error": "提取失败"}
+            for url in crawl_result.get("failed_urls", [])
+        ]
+
+        response_time = time.time() - start_time
+
+        return ExtractResponse(
+            results=results,
+            failed_results=failed_results,
+            response_time=response_time
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"内容提取过程发生异常: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # 清理活跃连接列表
+        if current_task and current_task in active_connections:
+            active_connections.remove(current_task)
+            logger.debug("已清理完成的提取请求")
