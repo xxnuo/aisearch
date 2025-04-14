@@ -165,6 +165,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 async def crawl(request: CrawlRequest):
     """执行URL爬取"""

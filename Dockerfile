@@ -1,41 +1,37 @@
-# Use a Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Install the project into `/app`
 WORKDIR /app
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
-
-# Copy from the cache instead of linking since it's a mounted volume
-ENV UV_LINK_MODE=copy
-
-# Copy dependency files first for better caching
+# Install base dependencies (cached layer)
 COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev
 
-# Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
-
+# Install Playwright browsers + system deps (cached layer if pyproject/lock don't change)
+# Combine with crawl4ai setup if possible, or keep separate if needed
+RUN uv run python -m playwright install --with-deps --force chromium
 RUN uv run crawl4ai-setup
 
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
-COPY . /app
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+# Copy application code
+COPY . .
 
-# Place executables in the environment at the front of the path
-ENV PATH="/app:${PATH}"
-ENV PYTHONPATH=/app
+# Install project dependencies (including the project itself)
+# This layer changes when code or deps change
+RUN uv sync --frozen --no-dev
+
+# Set PATH to include virtual environment binaries
+# This is good practice, especially if you might `docker exec` into the container
+# `uv run` in ENTRYPOINT makes this less critical for the entrypoint itself, but still useful.
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Reset the entrypoint, don't invoke `uv`
-ENTRYPOINT []
+# PYTHONPATH is often unnecessary when WORKDIR is set correctly, removing it.
+# ENV PYTHONPATH=/app
 
-# Run the FastAPI application by default
-# Uses `fastapi dev` to enable hot-reloading when the `watch` sync occurs
-# Uses `--host 0.0.0.0` to allow access from outside the container
-CMD [ "uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000" ]
+EXPOSE 3000
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Use uv run to execute uvicorn within the virtual environment
+# Uvicorn should find `main.py` in the current WORKDIR (/app)
+ENTRYPOINT [ "uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000" ]

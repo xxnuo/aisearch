@@ -8,24 +8,27 @@ setup:
 	uv run crawl4ai-setup
 	uv run crawl4ai-doctor
 
-builder:
-	docker buildx create --name aisearch-builder
-
-destroy:
-	docker buildx rm aisearch-builder
-
 build:
-	docker buildx build --builder aisearch-builder \
-	--platform linux/amd64,linux/arm64 \
-	-t xxnuo/aisearch:$(VERSION) .
-	docker tag xxnuo/aisearch:$(VERSION) xxnuo/aisearch:latest
-	
+	docker build --load \
+	-t xxnuo/aisearch:$(VERSION) \
+	-t xxnuo/aisearch:latest \
+	-t registry.lazycat.cloud/aisearch:$(VERSION) \
+	-t registry.lazycat.cloud/aisearch:latest \
+	.
+
 test:
-	docker compose --env-file .env up
+	docker run -it --rm xxnuo/aisearch:latest
 
 push:
-	docker push xxnuo/aisearch:$(VERSION)
-	docker push xxnuo/aisearch:latest
+	docker buildx create --name aisearch-builder
+	docker buildx build --builder aisearch-builder \
+	--platform linux/amd64,linux/arm64 \
+	-t xxnuo/aisearch:$(VERSION) \
+	-t xxnuo/aisearch:latest \
+	-t registry.lazycat.cloud/aisearch:$(VERSION) \
+	-t registry.lazycat.cloud/aisearch:latest \
+	--push .
+	docker buildx rm aisearch-builder
 
 default: dev
 
