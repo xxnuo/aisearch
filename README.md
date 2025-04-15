@@ -45,6 +45,10 @@ SEARCH_RESULT_LIMIT=5
 
 ## 📚 API 使用说明
 
+完全兼容 Tavily, 查看 [官方文档](https://docs.tavily.com/documentation/api-reference/endpoint/search) 
+
+简要说明：
+
 ### 搜索 API
 
 ```http
