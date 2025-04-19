@@ -1,6 +1,6 @@
 [project]
 name = "aisearch"
-version = "1.1.3"
+version = "1.1.6"
 description = "Tavily compatible search service based on SearXNG and Crawl4AI"
 readme = "README.md"
 requires-python = ">=3.12"

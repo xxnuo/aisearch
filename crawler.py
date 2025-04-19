@@ -99,6 +99,12 @@ class WebCrawler:
                 if time_range:
                     params["time_range"] = time_range
 
+            # 处理默认的排除域名
+            if exclude_domains is None:
+                exclude_domains = config.DISABLED_DOMAINS.split(",")
+            elif isinstance(exclude_domains, list):
+                exclude_domains.extend(config.DISABLED_DOMAINS.split(","))
+
             # 处理域名过滤
             domain_filters = []
             if include_domains:

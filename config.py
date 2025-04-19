@@ -35,6 +35,9 @@ API_PORT = int(os.getenv("API_PORT", "3000"))
 # 搜索引擎配置
 SEARCH_RESULT_LIMIT = int(os.getenv("SEARCH_RESULT_LIMIT", "5"))
 
+DEFAULT_DISABLED_DOMAINS = "csdn.net"
+DISABLED_DOMAINS = os.getenv("DISABLED_DOMAINS", DEFAULT_DISABLED_DOMAINS)
+
 DEFAULT_DISABLED_ENGINES = (
     "wikipedia__general,currency__general,wikidata__general,duckduckgo__general,"
     "google__general,lingva__general,qwant__general,startpage__general,"

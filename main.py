@@ -197,7 +197,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="aisearch",
     description="Tavily compatible search service based on SearXNG and Crawl4AI",
-    version="1.1.3",
     lifespan=lifespan,
 )
 
