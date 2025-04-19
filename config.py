@@ -2,9 +2,6 @@ import os
 from dotenv import load_dotenv
 from logger import setup_logger
 from utils import trim_slash
-import const
-
-VERSION = const.VERSION
 
 # 配置日志
 logger = setup_logger()
