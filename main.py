@@ -60,7 +60,7 @@ class SearchRequest(BaseModel):
         default=False, description="是否包含图片描述"
     )
     include_domains: List[str] = Field(default=[], description="指定包含的域名列表")
-    exclude_domains: List[str] = Field(default=[], description="指定排除的域名列表")
+    exclude_domains: List[str] = Field(default=["csdn.net"], description="指定排除的域名列表")
 
     class Config:
         schema_extra = {
