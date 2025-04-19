@@ -1,4 +1,4 @@
-VERSION := $(shell grep -o '".*"' const.py | tr -d '"')
+VERSION := $(shell grep -o 'version = ".*"' pyproject.toml | cut -d'"' -f2)
 
 dev:
 	uv run uvicorn main:app --reload
